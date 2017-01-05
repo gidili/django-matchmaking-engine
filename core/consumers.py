@@ -65,12 +65,13 @@ def ws_message(message):
 def ws_disconnect(message):
     Group("chat-%s" % message.channel_session['game']).discard(message.reply_channel)
 
-    # re-directed or disconnected / channel closed - remove user from matchmaking queue
+    # remove user from matchmaking queue in case of disconnect
     session_id = message.channel_session.session_key
     reply_channel = message.reply_channel
     try:
         settings.MATCH_MAKING_QUEUE.remove({'session': session_id,
-                                          'game': message.channel_session['game'],
-                                          'reply_channel': reply_channel})
+                                            'game': message.channel_session['game'],
+                                            'reply_channel': reply_channel})
     except:
+        # the user might have been removed because the game started
         logger.info('Item already removed from matchmaking queue')
