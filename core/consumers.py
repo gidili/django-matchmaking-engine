@@ -1,5 +1,6 @@
 # In consumers.py
 import logging
+import threading
 from django.conf import settings
 from channels import Group
 from channels import Channel
@@ -38,23 +39,16 @@ def ws_connect(message):
             matching_players.append(player)
 
     if len(matching_players) >= 2:
-        for indx, player in enumerate(matching_players):
-            if indx<2:
-                # take first 2 matching players out of queue
-                settings.MATCH_MAKING_QUEUE.remove(player)
-                # send game starting message
-                player['reply_channel'].send({'text': 'Opponent found! Your game is about to start'})
+        make_match(matching_players)
 
 # Connected to websocket.receive
 @enforce_ordering(slight=True)
 @channel_session
 def ws_message(message):
-
     # TODO: if it's polling message, check if the user is already in queue
     # TODO: if so, check if we have 2 users to start a given game
     # TODO: if so send both a message and remove them from queue
     # TODO: else do nothing
-
     Group("chat-%s" % message.channel_session['game']).send({
         "text": message['text'],
     })
@@ -75,3 +69,25 @@ def ws_disconnect(message):
     except:
         # the user might have been removed because the game started
         logger.info('Item already removed from matchmaking queue')
+
+
+# declare synchronized decorator
+def synchronized(func):
+    func.__lock__ = threading.Lock()
+
+    def synced_func(*args, **kws):
+        with func.__lock__:
+            return func(*args, **kws)
+
+    return synced_func
+
+
+# synchronized match making function
+@synchronized
+def make_match(matching_players):
+    for indx, player in enumerate(matching_players):
+        if indx < 2:
+            # take first 2 matching players out of queue
+            settings.MATCH_MAKING_QUEUE.remove(player)
+            # send game starting message
+            player['reply_channel'].send({'text': 'Opponent found! Your game is about to start'})
