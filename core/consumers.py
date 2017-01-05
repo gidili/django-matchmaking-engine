@@ -25,15 +25,25 @@ def ws_connect(message):
     message.channel_session['game'] = game
     Group("chat-%s" % game).add(message.reply_channel)
 
-    settings.MATCH_MAKING_MAP.append({'session': session_id,
+    settings.MATCH_MAKING_QUEUE.append({'session': session_id,
                                       'game': game,
                                       'reply_channel': reply_channel})
 
     reply_channel.send({'text': 'You have joined the queue for ' + game})
 
-    # TODO: whenever a user connects, check if we have 2 users to start a given game
-    # TODO: if so send both a message and remove them from queue
-    # TODO: else do nothing
+    # whenever a user connects, check if we have 2 users to start a given game
+    matching_players = []
+    for player in settings.MATCH_MAKING_QUEUE:
+        if player['game'] == game:
+            matching_players.append(player)
+
+    if len(matching_players) >= 2:
+        for indx, player in enumerate(matching_players):
+            if indx<2:
+                # take first 2 matching players out of queue
+                settings.MATCH_MAKING_QUEUE.remove(player)
+                # send game starting message
+                player['reply_channel'].send({'text': 'Opponent found! Your game is about to start'})
 
 # Connected to websocket.receive
 @enforce_ordering(slight=True)
@@ -58,6 +68,9 @@ def ws_disconnect(message):
     # re-directed or disconnected / channel closed - remove user from matchmaking queue
     session_id = message.channel_session.session_key
     reply_channel = message.reply_channel
-    settings.MATCH_MAKING_MAP.remove({'session': session_id,
-                                      'game': message.channel_session['game'],
-                                      'reply_channel': reply_channel})
+    try:
+        settings.MATCH_MAKING_QUEUE.remove({'session': session_id,
+                                          'game': message.channel_session['game'],
+                                          'reply_channel': reply_channel})
+    except:
+        logger.info('Item already removed from matchmaking queue')

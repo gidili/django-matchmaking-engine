@@ -127,4 +127,4 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s %(message)s',
 )
 
-MATCH_MAKING_MAP = []
+MATCH_MAKING_QUEUE = []
